@@ -1,0 +1,869 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SISTEMA CORPORATIVO - I&A CONTRERAS V4</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        :root { --primary: #1b5e20; --secondary: #2e7d32; --accent: #a5d6a7; --dark: #121212; --light: #f4f7f6; --danger: #c62828; }
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', sans-serif; }
+        body { background: var(--light); color: #333; }
+
+        /* Estructura Lateral */
+        nav { width: 260px; background: var(--dark); color: white; position: fixed; height: 100vh; padding: 20px; z-index: 1000; display: flex; flex-direction: column; left: 0; transition: width 0.4s ease; overflow: hidden; }
+        main { margin-left: 260px; padding: 30px; min-height: 100vh; transition: margin-left 0.4s ease; }
+        
+        .card { background: white; padding: 25px; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.08); margin-bottom: 25px; border-top: 4px solid var(--primary); }
+        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; }
+        
+        /* Login */
+        #login-screen { position: fixed; inset: 0; background: linear-gradient(135deg, var(--dark), var(--primary)); z-index: 9999; display: flex; align-items: center; justify-content: center; }
+        .login-card { background: white; padding: 40px; border-radius: 20px; width: 380px; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+
+        /* UI Elements */
+        input, select, textarea { width: 100%; padding: 12px; margin: 8px 0; border: 1px solid #ddd; border-radius: 8px; font-size: 0.9rem; }
+        button { padding: 12px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; background: var(--primary); color: white; transition: 0.3s; }
+        button:hover { filter: brightness(1.2); transform: translateY(-1px); }
+        .nav-link { padding: 12px; margin: 4px 0; cursor: pointer; border-radius: 8px; display: flex; align-items: center; gap: 10px; color: #ccc; transition: 0.3s; border: 1px solid rgba(255,255,255,0.2); }
+        .nav-link.active, .nav-link:hover { background: var(--primary); color: white; }
+        
+        /* Tablas */
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 0.85rem; }
+        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #eee; word-break: break-word; }
+        th { background: #f8f9fa; color: var(--primary); }
+
+        /* Finanzas */
+        .box-result { padding: 15px; border-radius: 10px; text-align: center; margin-bottom: 10px; }
+        .box-result h1, .box-result h2 { overflow-wrap: break-word; word-break: break-word; }
+        .box-inv { background: #fff3e0; border: 1px solid #ffcc80; }
+        .box-util { background: #e8f5e9; border: 1px solid #a5d6a7; }
+        .rep-item { display: flex; justify-content: space-between; align-items: center; padding: 10px; background: #f9f9f9; border-radius: 8px; margin-bottom: 5px; border-left: 4px solid var(--primary); flex-wrap: wrap; gap: 5px; }
+        .rep-item b { overflow-wrap: break-word; word-break: break-word; text-align: right; }
+        
+        .section { display: none; animation: fadeIn 0.4s ease; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        
+        .admin-only, .com-only { display: none; }
+
+        #nav-toggle {
+            position: fixed;
+            top: 15px;
+            left: 15px;
+            z-index: 1002;
+            display: none; /* Oculto hasta el login */
+            width: 40px;
+            height: 40px;
+            transition: opacity 0.3s ease;
+            opacity: 0;
+            pointer-events: none;
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 8px;
+            background: var(--dark);
+            color: #ccc;
+        }
+
+        body.nav-collapsed #nav-toggle {
+            opacity: 1;
+            pointer-events: auto;
+            left: 20px; /* Centrado en barra de 80px: (80 - 40) / 2 */
+            top: 20px;
+        }
+
+        body.nav-collapsed #nav-toggle:hover {
+            background: var(--primary);
+            color: white;
+        }
+
+        body.nav-collapsed nav { width: 80px; }
+        body.nav-collapsed main { margin-left: 80px; }
+        body.nav-collapsed .nav-link span, body.nav-collapsed nav h3, body.nav-collapsed nav small, body.nav-collapsed nav button span { display: none; }
+        body.nav-collapsed .nav-link, body.nav-collapsed nav button { justify-content: center; }
+        body.nav-collapsed nav > div:first-child { border-bottom: none; }
+
+        .editing-text {
+            border: 1px dashed #2196f3;
+            background: rgba(33, 150, 243, 0.1);
+            padding: 2px;
+            border-radius: 4px;
+            outline: none;
+        }
+    </style>
+</head>
+<body>
+
+    <button id="nav-toggle" onclick="toggleNav()"><i class="fas fa-bars"></i></button>
+
+    <div id="login-screen">
+        <div class="login-card">
+            <h2 style="color: var(--primary)">I&A CONTRERAS</h2>
+            <p style="font-size: 0.8rem; color: #666; margin-bottom: 20px;">SISTEMA DE GESTIÓN CORPORATIVA</p>
+            <input type="text" id="u-login" placeholder="Usuario">
+            <input type="password" id="p-login" placeholder="Contraseña">
+            <button onclick="login()" style="width: 100%;">ENTRAR AL SISTEMA</button>
+            <p id="err-msg" style="color: red; display: none; margin-top: 10px;">Credenciales inválidas</p>
+        </div>
+    </div>
+
+    <nav id="sidebar" style="display: none;">
+        <div style="text-align: center; border-bottom: 1px solid #444; padding-bottom: 20px; margin-bottom: 20px;">
+            <h3 style="color: var(--accent); cursor: pointer;" onclick="toggleNav()" title="Ocultar menú">I&A CONTRERAS</h3>
+            <small id="user-display" style="color: #fff;"></small>
+        </div>
+        <div class="nav-link active" onclick="showSection('inicio', this)"><i class="fas fa-info-circle"></i> <span>Inicio</span></div>
+        <div class="nav-link" onclick="showSection('operaciones', this)"><i class="fas fa-truck"></i> <span>Movimientos</span></div>
+        <div class="nav-link" onclick="showSection('calculadora', this)"><i class="fas fa-flask"></i> <span>Calculadora</span></div>
+        <div class="nav-link admin-only com-only" onclick="showSection('financiero', this)"><i class="fas fa-chart-pie"></i> <span>Financiero</span></div>
+        <div class="nav-link admin-only" onclick="showSection('usuarios', this)"><i class="fas fa-users-cog"></i> <span>Gestión Usuarios</span></div>
+        <button onclick="location.reload()" style="background: var(--danger); margin-top: auto; display: flex; align-items: center; gap: 10px; justify-content: center;"><i class="fas fa-power-off"></i> <span>Salir</span></button>
+    </nav>
+
+    <main id="app-content" style="display: none;">
+        
+        <section id="inicio" class="section" style="display: block;">
+            <div class="admin-only" style="margin-bottom: 10px; text-align: right;">
+                <button onclick="toggleEditInicio()" style="background: var(--secondary); width: auto; padding: 8px 15px;"><i class="fas fa-edit"></i> Editar Información</button>
+            </div>
+            <div id="inicio-container">
+                <div class="card">
+                    <h1 style="color: var(--primary);"><i class="fas fa-industry"></i> ¿Qué es el Acidulado de Soya?</h1>
+                    <p style="margin-top: 10px;">Es un subproducto esencial de la refinación del aceite crudo, obtenido mediante la acidulación del <i>soapstock</i>. Es vital para la industria de nutrición animal por su alta densidad energética.</p>
+                    <div class="grid" style="margin-top: 20px;">
+                        <div class="card" style="border-top: 4px solid #2196f3;">
+                            <h4><i class="fas fa-flask"></i> Proceso Químico</h4>
+                            <p>Utilizamos Ácido Sulfúrico ($H_{2}SO_{4}$) al 7.68% para separar los ácidos grasos. Temperatura óptima: 80°C - 100°C.</p>
+                        </div>
+                        <div class="card" style="border-top: 4px solid #ff9800;">
+                            <h4><i class="fas fa-bullseye"></i> Usos Estratégicos</h4>
+                            <p>Principalmente utilizado en dietas para aves y cerdos, permitiendo una excelente absorción de nutrientes a bajo costo.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="operaciones" class="section">
+            <div class="card">
+                <h2 style="text-align: center;"><i class="fas fa-truck-loading"></i> Registro de Mula</h2>
+                <div style="display: flex; flex-direction: column; max-width: 500px; margin: 0 auto; width: 100%;">
+                    <div style="display: flex; gap: 5px; align-items: center; margin: 8px 0; justify-content: center;">
+                        <input type="text" id="op-placa-L" placeholder="AAA" maxlength="3" style="text-transform: uppercase; text-align: center; width: 80px;" oninput="updateOpPlacaPreview()">
+                        <span style="font-weight: bold;">-</span>
+                        <input type="text" id="op-placa-N" placeholder="123" maxlength="3" style="text-align: center; width: 80px;" oninput="updateOpPlacaPreview()">
+                        <span id="op-placa-preview" style="margin-left: 10px; color: var(--primary); font-weight: bold; white-space: nowrap; font-size: 0.9rem;"><i class="fas fa-arrow-right"></i> AAA-123</span>
+                    </div>
+                    <select id="op-tipo">
+                        <option value="" disabled selected hidden>Seleccione tipo de movimiento</option>
+                        <option value="INGRESO SOAPSTOCK">Ingreso Soapstock (Materia Prima)</option>
+                        <option value="SALIDA ACIDULADO">Salida Acidulado (Producto)</option>
+                    </select>
+                    <input type="text" id="op-peso" placeholder="Peso Neto KG" oninput="formatInput(this)">
+                    <div style="margin: 8px 0;">
+                        <label style="display: block; margin-bottom: 5px; color: #666; font-size: 0.9rem;">Foto del Vehículo / Guía:</label>
+                        <input type="file" id="op-foto" accept="image/*" onchange="encodeImg(this)" style="margin: 0; width: 100%;">
+                    </div>
+                    <textarea id="op-obs" placeholder="Observaciones generales..." rows="1" style="resize: none; overflow-y: hidden;" oninput="autoResize(this)"></textarea>
+                </div>
+                <button onclick="guardarMovimiento()" style="width: auto; margin: 20px auto; display: block;"><i class="fas fa-save"></i> REGISTRAR</button>
+            </div>
+            <div class="card">
+                <h3>Historial Logístico</h3>
+                <table id="table-ops">
+                    <thead><tr><th>Fecha</th><th>Placa</th><th>Tipo</th><th>Peso</th><th>Foto</th><th>Descarga</th><th>Acciones</th></tr></thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </section>
+
+        <section id="calculadora" class="section">
+            <div class="card" style="text-align: center;">
+                <h2>Calculadora Dual Técnica</h2>
+                <div class="grid" style="margin-top: 20px;">
+                    <div><label>Kilos Soapstock</label><input type="text" id="c-kg" oninput="formatInput(this); calcDual('K')" placeholder="0"></div>
+                    <div><label>Galones Soapstock</label><input type="text" id="c-gl" oninput="formatInput(this); calcDual('G')" placeholder="0"></div>
+                </div>
+                <div class="grid" style="margin-top: 20px;">
+                    <div class="box-result box-util"><h3>Ácido en Kilos</h3><h1 id="res-ak">0.00</h1></div>
+                    <div class="box-result box-inv"><h3>Ácido en Galones</h3><h1 id="res-ag">0.00</h1></div>
+                </div>
+            </div>
+        </section>
+
+        <section id="financiero" class="section">
+            <div class="grid">
+                <div class="card">
+                    <h3><i class="fas fa-wallet"></i> 1. Inversión (Costos)</h3>
+                    <div style="display: flex; gap: 5px; align-items: center; margin-bottom: 8px;">
+                        <input type="text" id="f-placa-L" placeholder="AAA" maxlength="3" style="text-transform: uppercase; text-align: center; width: 80px;" oninput="updatePlacaPreview()">
+                        <span style="font-weight: bold;">-</span>
+                        <input type="text" id="f-placa-N" placeholder="123" maxlength="3" style="text-align: center; width: 80px;" oninput="updatePlacaPreview()">
+                        <span id="f-placa-preview" style="margin-left: 10px; color: var(--primary); font-weight: bold; white-space: nowrap; font-size: 0.9rem;"><i class="fas fa-arrow-right"></i> AAA-123</span>
+                    </div>
+                    <label>Kilos Materia Prima</label><input type="text" id="f-kilos-materia" oninput="formatInput(this); autoFin()" placeholder="0">
+                    <label>Precio por Kilo Materia Prima ($)</label><input type="text" id="f-precio-materia" oninput="formatInput(this); autoFin()" placeholder="0">
+                    <label>Costo Químicos ($)</label><input type="text" id="f-quimico" oninput="formatInput(this); autoFin()" placeholder="0">
+                    <label>Costo Transporte ($)</label><input type="text" id="f-transp" oninput="formatInput(this); autoFin()" placeholder="0">
+                    <div class="box-result box-inv"><strong>INVERSIÓN TOTAL:</strong> <h2 id="f-total-inv">$ 0</h2></div>
+                </div>
+
+                <div class="card">
+                    <h3><i class="fas fa-hand-holding-usd"></i> 2. Venta y Utilidad</h3>
+                    <label>Kilos Vendidos</label><input type="text" id="f-kvend" oninput="formatInput(this); autoFin()" placeholder="0">
+                    <label>Precio por Kilo ($)</label><input type="text" id="f-precio" oninput="formatInput(this); autoFin()" placeholder="0">
+                    <div class="box-result box-util" style="margin-top: 45px;">
+                        <strong>UTILIDAD BRUTA:</strong> <h2 id="f-util-bruta">$ 0</h2>
+                    </div>
+                    <div class="box-result" style="background: #e3f2fd;">
+                        <strong>UTILIDAD NETA (Sin Operativos):</strong> <h2 id="f-util-neta">$ 0</h2>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h3><i class="fas fa-users"></i> 3. Repartición de Ganancias (Configurable)</h3>
+                <div class="grid">
+                    <div>
+                        <label>Administrador (%)</label><input type="number" id="p-adm" value="45" oninput="autoFin()">
+                        <label>Socio / Comercial (%)</label><input type="number" id="p-com" value="45" oninput="autoFin()">
+                        <label>Operadores (%)</label><input type="number" id="p-ope" value="10" oninput="autoFin()">
+                    </div>
+                    <div style="display: flex; flex-direction: column; justify-content: center;">
+                        <div class="rep-item"><span>Pago Administrador:</span><b id="v-adm">$ 0</b></div>
+                        <div class="rep-item"><span>Pago Comercial:</span><b id="v-com">$ 0</b></div>
+                        <div class="rep-item"><span>Pago Operadores:</span><b id="v-ope">$ 0</b></div>
+                        <button onclick="archivarLiquidacion()" style="margin-top: 10px; background: #1565c0;">GUARDAR LIQUIDACIÓN FINAL</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h3>Resumen de Rentabilidad</h3>
+                <canvas id="chartFin" height="100"></canvas>
+                <table id="table-fin">
+                    <thead><tr><th>Placa Mula</th><th>Inversión</th><th>Venta</th><th>Utilidad</th><th>Acciones</th></tr></thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </section>
+
+        <section id="usuarios" class="section">
+            <div class="card">
+                <h2 style="text-align: center;">Administración de Personal</h2>
+                <div style="display: flex; flex-direction: column; max-width: 500px; margin: 0 auto; width: 100%;">
+                    <input type="text" id="nu-nom" placeholder="Nombre completo">
+                    <input type="text" id="nu-usu" placeholder="Usuario">
+                    <input type="text" id="nu-pas" placeholder="Contraseña">
+                    <select id="nu-rol">
+                        <option value="" disabled selected hidden>Seleccionar rol</option>
+                        <option value="operador">Operador</option>
+                        <option value="comercial">Comercial / Socio</option>
+                        <option value="Administrador">Administrador</option>
+                    </select>
+                </div>
+                <button onclick="nuevoUsuario()" style="width: auto; margin: 20px auto; display: block;"><i class="fas fa-user-plus"></i> CREAR NUEVO USUARIO</button>
+            </div>
+            <div class="card">
+                <h3>Usuarios en el Sistema</h3>
+                <table id="table-users">
+                    <thead><tr><th>Nombre</th><th>Usuario</th><th>Contraseña</th><th>Rol</th><th>Acción</th></tr></thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </section>
+
+    </main>
+
+    <script>
+        // CONFIGURACIÓN INICIAL
+        let db = JSON.parse(localStorage.getItem('IAC_SYSTEM_DATA')) || {
+            users: [{nombre: "ADMINISTRADOR", user: "admin", pass: "1234", rol: "Administrador"}],
+            movimientos: [],
+            finanzas: []
+        };
+        let defaultInicioHTML = document.getElementById('inicio-container').innerHTML;
+        let currentUser = null;
+        let imgTemp = "";
+        let editingOpId = null;
+        let editingFinId = null;
+        let editingUserIndex = null;
+        let isProcessingImg = false;
+        let chartRef = null;
+
+        // Migración de roles antiguos
+        db.users.forEach(u => { if(u.rol === 'admin') u.rol = 'Administrador'; });
+
+        // LOGIN
+        function login() {
+            const u = document.getElementById('u-login').value;
+            const p = document.getElementById('p-login').value;
+            const user = db.users.find(x => x.user === u && x.pass === p);
+
+            if(user) {
+                currentUser = user;
+                document.getElementById('login-screen').style.display = 'none';
+                document.getElementById('sidebar').style.display = 'flex';
+                document.getElementById('app-content').style.display = 'block';
+                document.getElementById('nav-toggle').style.display = 'block';
+                document.getElementById('user-display').innerText = `Bienvenido, ${user.rol.toUpperCase()} ${user.nombre.toUpperCase()}`;
+                if(user.rol === 'Administrador' || user.rol === 'comercial') {
+                    document.querySelectorAll('.com-only').forEach(e => e.style.display = 'flex');
+                }
+                if(user.rol === 'Administrador') {
+                    document.querySelectorAll('.admin-only').forEach(e => e.style.display = 'flex');
+                }
+                if(db.inicioContent) document.getElementById('inicio-container').innerHTML = db.inicioContent;
+                renderAll();
+            } else {
+                document.getElementById('err-msg').style.display = 'block';
+            }
+        }
+
+        // NAVEGACIÓN
+        function toggleNav() {
+            document.body.classList.toggle('nav-collapsed');
+        }
+
+        // FORMATO NUMÉRICO
+        function formatInput(input) {
+            let val = input.value.replace(/\./g, '').replace(/[^0-9,]/g, '');
+            let parts = val.split(',');
+            let intPart = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+            let decPart = parts.length > 1 ? ',' + parts[1] : '';
+            input.value = intPart + decPart;
+        }
+
+        function parseValue(str) {
+            if(!str) return 0;
+            return parseFloat(str.replace(/\./g, '').replace(',', '.')) || 0;
+        }
+
+        function formatNumberStr(numStr) {
+            let parts = numStr.toString().split('.');
+            let intPart = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+            let decPart = parts.length > 1 ? ',' + parts[1] : '';
+            return intPart + decPart;
+        }
+
+        // CALCULADORA DUAL
+        function calcDual(mode) {
+            const kg = document.getElementById('c-kg');
+            const gl = document.getElementById('c-gl');
+            const kgVal = parseValue(kg.value);
+            const glVal = parseValue(gl.value);
+            const d = 0.92; // Densidad Soapstock
+
+            if(mode === 'K') {
+                let res = (kgVal / 3.785 / d).toFixed(2);
+                gl.value = formatNumberStr(res);
+            } else {
+                let res = (glVal * 3.785 * d).toFixed(2);
+                kg.value = formatNumberStr(res);
+            }
+
+            const resK = (mode === 'K' ? kgVal : parseValue(kg.value)) * 0.0768;
+            document.getElementById('res-ak').innerText = formatNumberStr(resK.toFixed(2));
+            document.getElementById('res-ag').innerText = formatNumberStr((resK / 1.84 / 3.785).toFixed(2)); // Densidad H2SO4
+        }
+
+        // MOVIMIENTOS Y WORD
+        function encodeImg(input) {
+            if (input.files && input.files[0]) {
+                isProcessingImg = true;
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const img = new Image();
+                    img.onload = () => {
+                        const canvas = document.createElement('canvas');
+                        const ctx = canvas.getContext('2d');
+                        const MAX_W = 600; // Ajustado para compatibilidad con Word
+                        const scale = Math.min(MAX_W / img.width, 1);
+                        canvas.width = img.width * scale;
+                        canvas.height = img.height * scale;
+                        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                        imgTemp = canvas.toDataURL('image/jpeg', 0.7);
+                        isProcessingImg = false;
+                    };
+                    img.src = e.target.result;
+                };
+                reader.readAsDataURL(input.files[0]);
+            } else {
+                imgTemp = "";
+                isProcessingImg = false;
+            }
+        }
+
+        function guardarMovimiento() {
+            if(isProcessingImg) return alert("La imagen se está procesando. Por favor espere unos segundos antes de registrar.");
+            const l = document.getElementById('op-placa-L').value.toUpperCase();
+            const n = document.getElementById('op-placa-N').value;
+            const placa = `${l}-${n}`;
+            const tipo = document.getElementById('op-tipo').value;
+            const m = {
+                id: Date.now(),
+                fecha: new Date().toLocaleString(),
+                placa: placa,
+                tipo: tipo,
+                peso: document.getElementById('op-peso').value,
+                foto: imgTemp,
+                obs: document.getElementById('op-obs').value
+            };
+            if(!m.placa || !m.peso || !tipo) return alert("Faltan datos (Placa, Tipo o Peso)");
+            db.movimientos.push(m);
+            save(); renderOps();
+            
+            // Limpiar formulario
+            document.getElementById('op-placa-L').value = '';
+            document.getElementById('op-placa-N').value = '';
+            document.getElementById('op-tipo').value = '';
+            document.getElementById('op-peso').value = '';
+            document.getElementById('op-obs').value = '';
+            document.getElementById('op-obs').style.height = 'auto';
+            document.getElementById('op-foto').value = '';
+            document.getElementById('op-placa-preview').innerHTML = '<i class="fas fa-arrow-right"></i> AAA-123';
+            imgTemp = "";
+        }
+
+        function descargarWord(id) {
+            const m = db.movimientos.find(x => x.id === id);
+            if(!m) return;
+            const content = `
+                <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
+                <head><meta charset='utf-8'><title>Reporte</title></head>
+                <body>
+                    <h2 style="color: #1b5e20; font-family: Arial, sans-serif;">REPORTE DE MOVIMIENTO - I&A CONTRERAS</h2>
+                    <table border="1" cellpadding="10" cellspacing="0" style="width:100%; border-collapse:collapse; font-family: Arial, sans-serif;">
+                        <tr>
+                            <td style="background-color:#f0f0f0; width:30%;"><strong>FECHA</strong></td>
+                            <td>${m.fecha}</td>
+                        </tr>
+                        <tr>
+                            <td style="background-color:#f0f0f0;"><strong>PLACA</strong></td>
+                            <td>${m.placa}</td>
+                        </tr>
+                        <tr>
+                            <td style="background-color:#f0f0f0;"><strong>OPERACIÓN</strong></td>
+                            <td>${m.tipo}</td>
+                        </tr>
+                        <tr>
+                            <td style="background-color:#f0f0f0;"><strong>PESO NETO</strong></td>
+                            <td>${m.peso} KG</td>
+                        </tr>
+                        <tr>
+                            <td style="background-color:#f0f0f0;"><strong>OBSERVACIONES</strong></td>
+                            <td>${m.obs}</td>
+                        </tr>
+                    </table>
+                </body>
+                </html>
+            `;
+            const blob = new Blob(['\ufeff', content], { type: 'application/vnd.ms-word' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = `Movimiento_${m.placa}.doc`;
+            link.click();
+        }
+
+        // FINANZAS Y REPARTICIÓN
+        function autoFin() {
+            const kilosMat = parseValue(document.getElementById('f-kilos-materia').value);
+            const precioMat = parseValue(document.getElementById('f-precio-materia').value);
+            const mat = kilosMat * precioMat;
+            const qui = parseValue(document.getElementById('f-quimico').value);
+            const tra = parseValue(document.getElementById('f-transp').value);
+            const kv = parseValue(document.getElementById('f-kvend').value);
+            const pre = parseValue(document.getElementById('f-precio').value);
+
+            const invTotal = mat + qui + tra;
+            const ventaTotal = kv * pre; // Esto es la Utilidad Bruta
+            const utilidadNeta = ventaTotal - invTotal; // Esto es la Utilidad Neta
+
+            document.getElementById('f-total-inv').innerText = `$ ${invTotal.toLocaleString()}`;
+            document.getElementById('f-util-bruta').innerText = `$ ${ventaTotal.toLocaleString()}`;
+            document.getElementById('f-util-neta').innerText = `$ ${utilidadNeta.toLocaleString()}`;
+
+            // Repartición sobre la utilidad neta
+            const pAdm = (parseFloat(document.getElementById('p-adm').value) / 100) * utilidadNeta;
+            const pCom = (parseFloat(document.getElementById('p-com').value) / 100) * utilidadNeta;
+            const pOpe = (parseFloat(document.getElementById('p-ope').value) / 100) * utilidadNeta;
+
+            document.getElementById('v-adm').innerText = `$ ${pAdm.toLocaleString()}`;
+            document.getElementById('v-com').innerText = `$ ${pCom.toLocaleString()}`;
+            document.getElementById('v-ope').innerText = `$ ${pOpe.toLocaleString()}`;
+
+            return { invTotal: invTotal, ventaTotal: ventaTotal, utilidadBruta: utilidadNeta };
+        }
+
+        function archivarLiquidacion() {
+            const data = autoFin();
+            const l = document.getElementById('f-placa-L').value.trim().toUpperCase();
+            const n = document.getElementById('f-placa-N').value.trim();
+            const placa = `${l}-${n}`;
+            if(!/^[A-Z]{3}-\d{3}$/.test(placa)) return alert("Formato de placa inválido. Complete los campos (AAA-123)");
+
+            db.finanzas.push({
+                id: Date.now(),
+                placa: placa,
+                ...data
+            });
+            save(); renderFins(); initChart();
+            alert("Liquidación archivada");
+
+            // Limpiar formulario financiero
+            document.getElementById('f-placa-L').value = '';
+            document.getElementById('f-placa-N').value = '';
+            document.getElementById('f-placa-preview').innerHTML = '<i class="fas fa-arrow-right"></i> AAA-123';
+            
+            ['f-kilos-materia', 'f-precio-materia', 'f-quimico', 'f-transp', 'f-kvend', 'f-precio'].forEach(id => {
+                document.getElementById(id).value = '';
+            });
+
+            document.getElementById('f-total-inv').innerText = '$ 0';
+            document.getElementById('f-util-bruta').innerText = '$ 0';
+            document.getElementById('f-util-neta').innerText = '$ 0';
+            document.getElementById('v-adm').innerText = '$ 0';
+            document.getElementById('v-com').innerText = '$ 0';
+            document.getElementById('v-ope').innerText = '$ 0';
+        }
+
+        function initChart() {
+            const ctx = document.getElementById('chartFin').getContext('2d');
+            if(chartRef) chartRef.destroy();
+            chartRef = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: db.finanzas.slice(-5).map(x => x.placa),
+                    datasets: [
+                        { label: 'Inversión', data: db.finanzas.slice(-5).map(x => x.invTotal), backgroundColor: '#c62828' },
+                        { label: 'Venta', data: db.finanzas.slice(-5).map(x => x.ventaTotal), backgroundColor: '#2e7d32' }
+                    ]
+                }
+            });
+        }
+
+        // USUARIOS
+        function nuevoUsuario() {
+            const u = {
+                nombre: document.getElementById('nu-nom').value,
+                user: document.getElementById('nu-usu').value,
+                pass: document.getElementById('nu-pas').value,
+                rol: document.getElementById('nu-rol').value
+            };
+            if(!u.user || !u.pass || !u.rol) return alert("Por favor complete todos los campos y seleccione un rol.");
+            db.users.push(u);
+            save(); renderUsers();
+        }
+
+        function eliminarUser(index) {
+            if(index === 0) return alert("No puedes eliminar al administrador maestro");
+            db.users.splice(index, 1);
+            save(); renderUsers();
+        }
+
+        // EDICIÓN INICIO
+        let isEditing = false;
+        function toggleEditInicio() {
+            const container = document.getElementById('inicio-container');
+            const btn = document.querySelector('#inicio button');
+            const elements = container.querySelectorAll('h1, h4, p');
+
+            if(!isEditing) {
+                elements.forEach(el => {
+                    el.contentEditable = "true";
+                    el.classList.add('editing-text');
+                });
+                btn.innerHTML = '<i class="fas fa-save"></i> Guardar Cambios';
+            } else {
+                elements.forEach(el => {
+                    el.contentEditable = "false";
+                    el.classList.remove('editing-text');
+                });
+                db.inicioContent = container.innerHTML;
+                save();
+                btn.innerHTML = '<i class="fas fa-edit"></i> Editar Información';
+            }
+            isEditing = !isEditing;
+        }
+
+        // UTILIDADES
+        function save() { localStorage.setItem('IAC_SYSTEM_DATA', JSON.stringify(db)); }
+        function showSection(id, el) {
+            document.querySelectorAll('.section').forEach(s => s.style.display = 'none');
+            document.querySelectorAll('.nav-link').forEach(n => n.classList.remove('active'));
+            document.getElementById(id).style.display = 'block';
+            el.classList.add('active');
+            if(id === 'financiero') initChart();
+        }
+
+        function renderOps() {
+            const t = document.querySelector('#table-ops tbody');
+            t.innerHTML = db.movimientos.slice().reverse().map(m => {
+                const dateOnly = m.fecha.split(',')[0].trim();
+                const safeDate = dateOnly.replace(/\//g, '-');
+                const fileName = `MOVIMIENTO_${m.placa}_${safeDate}.jpg`;
+
+                if (m.id === editingOpId) {
+                    const parts = dateOnly.split('/');
+                    const dateValue = parts.length === 3 ? `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}` : '';
+                    const [placaL, placaN] = m.placa.split('-');
+
+                    return `
+                    <tr style="background: #f9f9f9;">
+                        <td><input type="date" id="edit-fecha-${m.id}" value="${dateValue}" style="width: 110px; padding: 5px; border: 1px solid #ccc; border-radius: 4px;"></td>
+                        <td>
+                            <div style="display: flex; gap: 2px; align-items: center;">
+                                <input type="text" id="edit-placa-L-${m.id}" value="${placaL}" maxlength="3" style="text-transform: uppercase; text-align: center; width: 40px; padding: 5px; border: 1px solid #ccc; border-radius: 4px;">
+                                <span>-</span>
+                                <input type="text" id="edit-placa-N-${m.id}" value="${placaN}" maxlength="3" style="text-align: center; width: 40px; padding: 5px; border: 1px solid #ccc; border-radius: 4px;">
+                            </div>
+                        </td>
+                        <td>
+                            <select id="edit-tipo-${m.id}" style="width: 100%; padding: 5px; border: 1px solid #ccc; border-radius: 4px;">
+                                <option value="INGRESO SOAPSTOCK" ${m.tipo === 'INGRESO SOAPSTOCK' ? 'selected' : ''}>Ingreso Soapstock</option>
+                                <option value="SALIDA ACIDULADO" ${m.tipo === 'SALIDA ACIDULADO' ? 'selected' : ''}>Salida Acidulado</option>
+                            </select>
+                        </td>
+                        <td><input type="text" id="edit-peso-${m.id}" value="${m.peso}" oninput="formatInput(this)" style="width: 80px; padding: 5px; border: 1px solid #ccc; border-radius: 4px;"></td>
+                        <td>(Foto)</td>
+                        <td>-</td>
+                        <td>
+                            <div style="display:flex; gap:5px;">
+                                <button onclick="guardarEdicionOp(${m.id})" style="background:var(--secondary); padding:6px 10px; font-size:0.75rem; white-space: nowrap;"><i class="fas fa-save"></i></button>
+                                <button onclick="cancelarEdicionOp()" style="background:#777; padding:6px 10px; font-size:0.75rem; white-space: nowrap;"><i class="fas fa-times"></i></button>
+                            </div>
+                        </td>
+                    </tr>`;
+                }
+
+                return `
+                <tr>
+                    <td>${m.fecha.split(',')[0]}</td>
+                    <td>${m.placa}</td>
+                    <td>${m.tipo}</td>
+                    <td>${m.peso} KG</td>
+                    <td>${m.foto ? `<a href="${m.foto}" download="${fileName}" title="Descargar: ${fileName}"><img src="${m.foto}" style="width:40px; border-radius:4px; cursor:pointer; border: 1px solid #ccc;"></a>` : ''}</td>
+                    <td><button onclick="descargarWord(${m.id})" style="padding:6px 10px; font-size:0.75rem; white-space: nowrap;"><i class="fas fa-file-word"></i> DOCX</button></td>
+                    <td>
+                        <div style="display:flex; flex-direction: column; gap:5px;">
+                            <button onclick="borrarOp(${m.id})" style="background:var(--danger); padding:6px 10px; font-size:0.75rem; white-space: nowrap;"><i class="fas fa-times"></i> BORRAR</button>
+                            <button onclick="editarOp(${m.id})" style="background:#ff9800; padding:6px 10px; font-size:0.75rem; white-space: nowrap;"><i class="fas fa-edit"></i> EDITAR</button>
+                        </div>
+                    </td>
+                </tr>
+            `}).join('');
+        }
+
+        function autoResize(el) {
+            el.style.height = 'auto';
+            el.style.height = el.scrollHeight + 'px';
+        }
+
+        function renderFins() {
+            const t = document.querySelector('#table-fin tbody');
+            t.innerHTML = db.finanzas.slice().reverse().map(f => `
+            ${f.id === editingFinId ? `
+                <tr style="background: #f9f9f9;">
+                    <td>
+                        <div style="display: flex; gap: 2px; align-items: center;">
+                            <input type="text" id="edit-fin-placa-L-${f.id}" value="${f.placa.split('-')[0]}" maxlength="3" style="text-transform: uppercase; text-align: center; width: 40px; padding: 5px; border: 1px solid #ccc; border-radius: 4px;">
+                            <span>-</span>
+                            <input type="text" id="edit-fin-placa-N-${f.id}" value="${f.placa.split('-')[1]}" maxlength="3" style="text-align: center; width: 40px; padding: 5px; border: 1px solid #ccc; border-radius: 4px;">
+                        </div>
+                    </td>
+                    <td><input type="text" id="edit-fin-inv-${f.id}" value="${formatNumberStr(f.invTotal)}" oninput="formatInput(this)" style="width: 100px; padding: 5px; border: 1px solid #ccc; border-radius: 4px;"></td>
+                    <td><input type="text" id="edit-fin-venta-${f.id}" value="${formatNumberStr(f.ventaTotal)}" oninput="formatInput(this)" style="width: 100px; padding: 5px; border: 1px solid #ccc; border-radius: 4px;"></td>
+                    <td style="color:gray;">(Auto)</td>
+                    <td>
+                        <div style="display:flex; gap:5px;">
+                            <button onclick="guardarEdicionFin(${f.id})" style="background:var(--secondary); padding:6px 10px; font-size:0.75rem; white-space: nowrap;"><i class="fas fa-save"></i></button>
+                            <button onclick="cancelarEdicionFin()" style="background:#777; padding:6px 10px; font-size:0.75rem; white-space: nowrap;"><i class="fas fa-times"></i></button>
+                        </div>
+                    </td>
+                </tr>
+            ` : `
+                <tr>
+                    <td>${f.placa}</td>
+                    <td>$${f.invTotal.toLocaleString()}</td>
+                    <td>$${f.ventaTotal.toLocaleString()}</td>
+                    <td style="color:green; font-weight:bold">$${f.utilidadBruta.toLocaleString()}</td>
+                    <td>
+                        <div style="display:flex; flex-direction: column; gap:5px;">
+                            <button onclick="borrarFin(${f.id})" style="background:var(--danger); padding:6px 10px; font-size:0.75rem; white-space: nowrap;"><i class="fas fa-times"></i> BORRAR</button>
+                            <button onclick="editarFin(${f.id})" style="background:#ff9800; padding:6px 10px; font-size:0.75rem; white-space: nowrap;"><i class="fas fa-edit"></i> EDITAR</button>
+                        </div>
+                    </td>
+                </tr>
+            `}`).join('');
+        }
+
+        function togglePass(index) {
+            const span = document.getElementById(`pass-${index}`);
+            const btn = document.getElementById(`btn-pass-${index}`);
+            if (span.innerText === '••••••••') {
+                span.innerText = db.users[index].pass;
+                btn.innerHTML = '<i class="fas fa-eye-slash"></i>';
+            } else {
+                span.innerText = '••••••••';
+                btn.innerHTML = '<i class="fas fa-eye"></i>';
+            }
+        }
+
+        function renderUsers() {
+            const t = document.querySelector('#table-users tbody');
+            t.innerHTML = db.users.map((u, i) => {
+                if (i === editingUserIndex) {
+                    return `
+                    <tr style="background: #f9f9f9;">
+                        <td><input type="text" id="edit-user-nom-${i}" value="${u.nombre}" style="padding: 5px; border: 1px solid #ccc; border-radius: 4px; width: 100%;"></td>
+                        <td><input type="text" id="edit-user-user-${i}" value="${u.user}" style="padding: 5px; border: 1px solid #ccc; border-radius: 4px; width: 100%;"></td>
+                        <td><input type="text" id="edit-user-pass-${i}" value="${u.pass}" style="padding: 5px; border: 1px solid #ccc; border-radius: 4px; width: 100%;"></td>
+                        <td>
+                            <select id="edit-user-rol-${i}" style="padding: 5px; border: 1px solid #ccc; border-radius: 4px; width: 100%;">
+                                <option value="operador" ${u.rol === 'operador' ? 'selected' : ''}>Operador</option>
+                                <option value="comercial" ${u.rol === 'comercial' ? 'selected' : ''}>Comercial / Socio</option>
+                                <option value="Administrador" ${u.rol === 'Administrador' ? 'selected' : ''}>Administrador</option>
+                            </select>
+                        </td>
+                        <td>
+                            <div style="display:flex; gap:5px;">
+                                <button onclick="guardarEdicionUser(${i})" style="background:var(--secondary); padding:6px 10px; font-size:0.75rem; white-space: nowrap;"><i class="fas fa-save"></i></button>
+                                <button onclick="cancelarEdicionUser()" style="background:#777; padding:6px 10px; font-size:0.75rem; white-space: nowrap;"><i class="fas fa-times"></i></button>
+                            </div>
+                        </td>
+                    </tr>`;
+                }
+                return `
+                <tr>
+                    <td>${u.nombre}</td>
+                    <td>${u.user}</td>
+                    <td>
+                        <div style="display: flex; align-items: center; gap: 5px;">
+                            <span id="pass-${i}">••••••••</span>
+                            <button id="btn-pass-${i}" onclick="togglePass(${i})" style="padding: 2px 6px; font-size: 0.8rem; background: transparent; color: #333; border: 1px solid #ccc; cursor: pointer;"><i class="fas fa-eye"></i></button>
+                        </div>
+                    </td>
+                    <td>${u.rol}</td>
+                    <td>
+                        <div style="display:flex; flex-direction: column; gap:5px;">
+                            <button onclick="eliminarUser(${i})" style="background:var(--danger); padding:6px 10px; font-size:0.75rem; white-space: nowrap;"><i class="fas fa-times"></i> BORRAR</button>
+                            <button onclick="editarUser(${i})" style="background:#ff9800; padding:6px 10px; font-size:0.75rem; white-space: nowrap;"><i class="fas fa-edit"></i> EDITAR</button>
+                        </div>
+                    </td>
+                </tr>
+            `}).join('');
+        }
+
+        function updatePlacaPreview() {
+            const l = document.getElementById('f-placa-L').value.toUpperCase();
+            const n = document.getElementById('f-placa-N').value;
+            document.getElementById('f-placa-preview').innerHTML = `<i class="fas fa-arrow-right"></i> ${l || 'AAA'}-${n || '123'}`;
+        }
+
+        function updateOpPlacaPreview() {
+            const l = document.getElementById('op-placa-L').value.toUpperCase();
+            const n = document.getElementById('op-placa-N').value;
+            document.getElementById('op-placa-preview').innerHTML = `<i class="fas fa-arrow-right"></i> ${l || 'AAA'}-${n || '123'}`;
+        }
+
+        function editarOp(id) {
+            editingOpId = id;
+            renderOps();
+        }
+
+        function cancelarEdicionOp() {
+            editingOpId = null;
+            renderOps();
+        }
+
+        function guardarEdicionOp(id) {
+            const dateInput = document.getElementById(`edit-fecha-${id}`).value;
+            const placaL = document.getElementById(`edit-placa-L-${id}`).value.toUpperCase();
+            const placaN = document.getElementById(`edit-placa-N-${id}`).value;
+            const tipo = document.getElementById(`edit-tipo-${id}`).value;
+            const peso = document.getElementById(`edit-peso-${id}`).value;
+
+            if (!dateInput || !placaL || !placaN || !peso) return alert("Todos los campos son obligatorios");
+            if (placaL.length !== 3 || placaN.length !== 3) return alert("Formato de placa inválido (AAA-123)");
+
+            const [y, m, d] = dateInput.split('-');
+            const newDateStr = `${d}/${m}/${y}, 12:00:00`;
+
+            const opIndex = db.movimientos.findIndex(x => x.id === id);
+            if (opIndex > -1) {
+                db.movimientos[opIndex].fecha = newDateStr;
+                db.movimientos[opIndex].placa = `${placaL}-${placaN}`;
+                db.movimientos[opIndex].tipo = tipo;
+                db.movimientos[opIndex].peso = peso;
+                save();
+                editingOpId = null;
+                renderOps();
+            }
+        }
+
+        function editarFin(id) {
+            editingFinId = id;
+            renderFins();
+        }
+
+        function cancelarEdicionFin() {
+            editingFinId = null;
+            renderFins();
+        }
+
+        function guardarEdicionFin(id) {
+            const placaL = document.getElementById(`edit-fin-placa-L-${id}`).value.toUpperCase();
+            const placaN = document.getElementById(`edit-fin-placa-N-${id}`).value;
+            const invStr = document.getElementById(`edit-fin-inv-${id}`).value;
+            const ventaStr = document.getElementById(`edit-fin-venta-${id}`).value;
+
+            if (!placaL || !placaN || !invStr || !ventaStr) return alert("Todos los campos son obligatorios");
+            if (placaL.length !== 3 || placaN.length !== 3) return alert("Formato de placa inválido (AAA-123)");
+
+            const invTotal = parseValue(invStr);
+            const ventaTotal = parseValue(ventaStr);
+            const utilidadBruta = ventaTotal - invTotal;
+
+            const finIndex = db.finanzas.findIndex(x => x.id === id);
+            if (finIndex > -1) {
+                db.finanzas[finIndex].placa = `${placaL}-${placaN}`;
+                db.finanzas[finIndex].invTotal = invTotal;
+                db.finanzas[finIndex].ventaTotal = ventaTotal;
+                db.finanzas[finIndex].utilidadBruta = utilidadBruta;
+                save();
+                editingFinId = null;
+                renderFins();
+                initChart();
+            }
+        }
+
+        function editarUser(index) {
+            editingUserIndex = index;
+            renderUsers();
+        }
+
+        function cancelarEdicionUser() {
+            editingUserIndex = null;
+            renderUsers();
+        }
+
+        function guardarEdicionUser(index) {
+            const nom = document.getElementById(`edit-user-nom-${index}`).value;
+            const usu = document.getElementById(`edit-user-user-${index}`).value;
+            const pas = document.getElementById(`edit-user-pass-${index}`).value;
+            const rol = document.getElementById(`edit-user-rol-${index}`).value;
+
+            if(!nom || !usu || !pas || !rol) return alert("Todos los campos son obligatorios");
+
+            db.users[index] = { nombre: nom, user: usu, pass: pas, rol: rol };
+            save();
+            editingUserIndex = null;
+            renderUsers();
+        }
+
+        function borrarOp(id) { db.movimientos = db.movimientos.filter(x => x.id !== id); save(); renderOps(); }
+        function borrarFin(id) { db.finanzas = db.finanzas.filter(x => x.id !== id); save(); renderFins(); initChart(); }
+        function renderAll() { renderOps(); renderFins(); renderUsers(); }
+
+    </script>
+</body>
+</html>
